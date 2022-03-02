@@ -10,6 +10,7 @@ import software.amazon.awscdk.services.events.targets.KinesisFirehoseStream;
 import software.amazon.awscdk.services.events.targets.KinesisStream;
 import software.amazon.awscdk.services.kinesis.Stream;
 import software.amazon.awscdk.services.kinesisfirehose.CfnDeliveryStream;
+import software.amazon.awscdk.services.sns.CfnTopic;
 import software.constructs.Construct;
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.services.iam.*;
@@ -99,6 +100,7 @@ class S3LambdaStack extends Stack {
       //create s3 notification bucket
       Bucket s3 = Bucket.Builder.create(this,sourceBucket).build();
 
+      /*
       CfnDeliveryStream cfnDeliveryStream = CfnDeliveryStream.Builder.create(this, "DeliveryStream").
       KinesisFirehoseStream.Builder.create(cfnDeliveryStream).
 
@@ -109,6 +111,7 @@ class S3LambdaStack extends Stack {
       lambda.getRole().attachInlinePolicy(new Policy(this,"s3-bucket-policy",
         PolicyProps.builder().statements(Arrays.asList( new PolicyStatement[]{statement3})).build()));
       lambda.addEnvironment("target",bucketName.getBucketName());
+       */
 
       //configure s3 notifications
       LambdaDestination functionDestination = new LambdaDestination(lambda);
@@ -119,8 +122,19 @@ class S3LambdaStack extends Stack {
       // Create Kinesis
 
       // Create SNS topic
+      CfnTopic snsTopic = CfnTopic.Builder.create(this, "SnsPublisher").fifoTopic(false).build();
 
-
+      // Create HTTP endpoint lambda handler
+      lambdaEnvMap.put( "SNS_TOPIC_ARN", snsTopic.getRef() );
+      Function httpLambda = Function.Builder.create(this,"HttpLambda")
+        .code(Code.fromAsset("./asset/lambda-1.0.0-jar-with-dependencies.jar"))
+        .handler("software.amazon.awscdk.examples.KinesisFirehoseHandler")
+        .role(lambdaRole)
+        .runtime(Runtime.JAVA_8).memorySize(1024)
+        .environment(lambdaEnvMap)
+        .timeout(Duration.minutes(5)).build();
     }
+
+    // Create API Gateway
   }
 }
