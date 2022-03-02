@@ -1,6 +1,15 @@
 package software.amazon.awscdk.examples;
 
+import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.Stack;
+import software.amazon.awscdk.services.dynamodb.Attribute;
+import software.amazon.awscdk.services.dynamodb.AttributeType;
+import software.amazon.awscdk.services.dynamodb.Table;
+import software.amazon.awscdk.services.dynamodb.TableProps;
+import software.amazon.awscdk.services.events.targets.KinesisFirehoseStream;
+import software.amazon.awscdk.services.events.targets.KinesisStream;
+import software.amazon.awscdk.services.kinesis.Stream;
+import software.amazon.awscdk.services.kinesisfirehose.CfnDeliveryStream;
 import software.constructs.Construct;
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.services.iam.*;
@@ -11,6 +20,8 @@ import software.amazon.awscdk.services.s3.notifications.LambdaDestination;
 import software.amazon.awscdk.services.lambda.Runtime;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import static software.amazon.awscdk.services.s3.EventType.OBJECT_CREATED;
 
@@ -59,17 +70,37 @@ class S3LambdaStack extends Stack {
         .path("/")
         .assumedBy(new ServicePrincipal("lambda.amazonaws.com")).build();
 
+      // Create DynamoDB table
+      TableProps tableProps;
+      Attribute partitionKey = Attribute.builder()
+        .name("itemId")
+        .type(AttributeType.STRING)
+        .build();
+      Stream stream = new Stream(this, "Stream");
+      Table dynamodbTable = Table.Builder.create(this, "items")
+        .partitionKey(partitionKey)
+        .removalPolicy(RemovalPolicy.DESTROY)
+        .kinesisStream(stream)
+        .build();
+      Map<String, String> lambdaEnvMap = new HashMap<>();
+      lambdaEnvMap.put("TABLE_NAME", dynamodbTable.getTableName());
+      lambdaEnvMap.put("PRIMARY_KEY","itemId");
+
       Function lambda = Function.Builder.create(this,"HelloLambda")
         .code(Code.fromAsset("./asset/lambda-1.0.0-jar-with-dependencies.jar"))
         .handler("software.amazon.awscdk.examples.S3EventHandler")
         .role(lambdaRole)
         .runtime(Runtime.JAVA_8).memorySize(1024)
+        .environment(lambdaEnvMap)
         .timeout(Duration.minutes(5)).build();
 
+      dynamodbTable.grantReadWriteData(lambda);
 
       //create s3 notification bucket
       Bucket s3 = Bucket.Builder.create(this,sourceBucket).build();
 
+      CfnDeliveryStream cfnDeliveryStream = CfnDeliveryStream.Builder.create(this, "DeliveryStream").
+      KinesisFirehoseStream.Builder.create(cfnDeliveryStream).
 
       PolicyStatement statement3 = PolicyStatement.Builder.create()
         .effect(Effect.ALLOW)
@@ -82,6 +113,14 @@ class S3LambdaStack extends Stack {
       //configure s3 notifications
       LambdaDestination functionDestination = new LambdaDestination(lambda);
       s3.addEventNotification(OBJECT_CREATED,functionDestination);
+
+      // Configure table stream
+
+      // Create Kinesis
+
+      // Create SNS topic
+
+
     }
   }
 }
