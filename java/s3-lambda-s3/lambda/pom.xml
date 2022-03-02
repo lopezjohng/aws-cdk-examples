@@ -80,6 +80,12 @@
       <version>1.12.100</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-sns</artifactId>
+      <version>1.12.169</version>
+    </dependency>
+
 
 
     <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
